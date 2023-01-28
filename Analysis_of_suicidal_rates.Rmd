@@ -1,0 +1,374 @@
+---
+title: "Analisi del rateo dei suicidi nel mondo"
+author: "Claudio De Toni"
+date: "5/1/2023"
+output:
+  ioslides_presentation:
+    incremental: yes
+    css: 'css/style.css'
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = FALSE, message = FALSE, warning = FALSE, echo=FALSE)
+```
+
+## Introduzione
+
+Questa presentazione andrà ad analizzare quanto il problema dei suicidi è risultato numericamente impattante in diversi contesti e condizioni nell'arco temporale compreso tra il **1985** e il **2016**.
+
+Tutte le informazioni utilizzate all'interno di questa presentazione sono state prese dal dataset <https://www.kaggle.com/datasets/dzikrifaizziyan/suicide-rates-overview-1985-to-2016>. 
+
+## Primo sguardo ai dati
+
+Prima di iniziare è utile dare una prima occhiata ai dati, per capire il tipo di informazioni che vi possiamo ricavare
+
+
+
+```{r, include = FALSE}
+library('readr')
+library('dplyr')
+library('ggplot2')
+suicidal_rates_data = read_csv(file='suicidal-rates-1985-2016.csv')
+suicidal_rates_data = suicidal_rates_data %>% rename(suicides_in_100k_pop = `suicides/100k pop`)
+suicidal_rates_data = suicidal_rates_data %>% rename(gdp_for_year = `gdp_for_year ($)`)
+suicidal_rates_data = suicidal_rates_data %>% rename(gdp_per_capita = `gdp_per_capita ($)`)
+suicidal_rates_data = suicidal_rates_data %>%
+  mutate(age = case_when(age == '5-14 years' ~ '05-14 years', TRUE ~ age))
+suicidal_rates_data$id = seq.int(nrow(suicidal_rates_data))
+suicidal_rates_data = suicidal_rates_data %>% relocate(id, .before = country)
+
+shuffled_data = suicidal_rates_data[sample(1:nrow(suicidal_rates_data)),]
+```
+
+```{r}
+print(shuffled_data, n=10)
+
+```
+## Nazioni
+
+Il primo aspetto interessante da analizzare è quello di comprendere quali siano le nazioni in cui i suicidi risultano essere un problema più o meno presente
+
+La tabella precedentemente mostrata possiede un dato che può essere particolarmente significativo al fine di rispondere a questa domanda, ossia il numero di suicidi ogni 100 000 abitanti.
+
+E' dunque possibile fare una classifica delle nazioni sulla base di questo dato.
+
+In questo caso in particolare andremo a prendere le 10 nazioni più affette dal problema e le 10 nazioni meno affette dal problema
+
+
+```{r, include = FALSE}  
+
+country_suicidal_rates_data = suicidal_rates_data %>%
+  group_by(country) %>%
+  summarise(
+    suicides_in_100k_pop = weighted.mean(suicides_in_100k_pop, population),
+  ) %>%
+  arrange(desc(suicides_in_100k_pop))
+
+
+most_suicidal_country_bar_plot = country_suicidal_rates_data[c(1:10),] %>%
+  ggplot()+
+  geom_col(mapping = aes(x = reorder(country, suicides_in_100k_pop), y = suicides_in_100k_pop, fill=suicides_in_100k_pop), color = "black") +
+  scale_fill_viridis_c("rateo", option="magma", begin=0.25, end=0.5) + 
+  ggtitle("Le 10 nazioni con il rateo di suicidi più elevato") + 
+  ylab("Rateo dei suicidi per 100k abitanti") + 
+  xlab("Nazione") + 
+  coord_flip()
+
+country_rows = nrow(country_suicidal_rates_data)
+
+less_suicidal_bar_plot = country_suicidal_rates_data[(country_rows-10):country_rows,] %>%
+  ggplot()+
+  geom_col(mapping = aes(x = reorder(country, suicides_in_100k_pop), y = suicides_in_100k_pop, fill=suicides_in_100k_pop), color = "black") +
+  scale_fill_viridis_c("rateo", option="magma", begin=0, end=0.25) + 
+  ggtitle("Le 10 nazioni con il rateo di suicidi più basso") + 
+  ylab("Rateo dei suicidi per 100k abitanti") + 
+  xlab("Nazione") + 
+  coord_flip()
+
+```
+
+```{r}
+
+most_suicidal_country_bar_plot
+
+less_suicidal_bar_plot
+
+```
+
+## Sesso
+
+Quanto il sesso incide all'interno del problema dei suicidi in italia?
+
+Il comportamento del caso italiano corrisponde al comportamento generale nel mondo?
+
+```{r, include = FALSE}  
+
+italian_data = suicidal_rates_data %>%
+  filter(country == 'Italy')
+
+italian_male_and_female_data = italian_data %>%
+  group_by(country, year, sex) %>%
+  summarise(suicides_in_100k_pop = weighted.mean(suicides_in_100k_pop, population))
+
+italian_male_and_female_plot = italian_male_and_female_data %>%
+  ggplot(mapping = aes(x=year, y=suicides_in_100k_pop, colour=sex)) + 
+  geom_line() +
+  geom_point(size=2) +
+  labs(
+    colour = 'sex'
+  ) + 
+  ggtitle("Evoluzione del tasso dei sucidi in italia in base al sesso") + 
+  ylab("Rateo dei suicidi per 100k abitanti") + 
+  xlab("Anno")
+
+global_male_and_female_data = suicidal_rates_data %>%
+  group_by(year, sex) %>%
+  summarise(suicides_in_100k_pop = weighted.mean(suicides_in_100k_pop, population))
+
+global_male_and_female_plot = global_male_and_female_data %>%
+  ggplot(mapping = aes(x=year, y=suicides_in_100k_pop, colour = sex)) + 
+  geom_point(size=2) + 
+  geom_line() +
+  labs(
+    colour = 'sex'
+  ) + 
+  ggtitle("Evoluzione del tasso dei sucidi nel mondo in base al sesso") + 
+  ylab("Rateo dei suicidi per 100k abitanti") + 
+  xlab("Anno")
+
+```
+
+```{r}
+italian_male_and_female_plot
+
+global_male_and_female_plot
+``` 
+
+Sia prendendo il solo caso italiano che il caso globale è evidente che essere uomo porta con sè una maggiore probabilità  di ricorrere al suicidio lungo la propria vita.
+
+Nel caso globale si può notare addirittura una differenza maggiore e particolarmente importante lungo il periodo tra il 1990 e il 2000.
+
+In generale è possibile affermare che statisticamente almeno 3/4 dei suicidi avvengono da parte degli uomini.
+
+Ed una differenza così sostanziale va tenuta in considerazione nelle prossime parti per verificare se tra i due sessi vi sono delle ulteriori differenze.
+
+## Età
+
+Allo stesso modo, l'età è un elemento incisivo nel numero dei sucidi?
+
+Diverse fasce d'età tendono a ricorrere al suicidio con probabilità diverse?
+
+E' possibile osservare una qualche forma di relazione?
+
+Questo comportamento vale in generale, solo per gli uomini o solo per le donne?
+
+```{r, include = FALSE}  
+
+global_age_data = suicidal_rates_data %>%
+  group_by(age, sex) %>%
+  summarise(suicides_in_100k_pop = weighted.mean(suicides_in_100k_pop, population))
+global_age_plot = global_age_data %>%
+  ggplot()+
+  geom_bar(mapping = aes(x = age, y = suicides_in_100k_pop, fill = sex), stat='identity') + 
+  ggtitle("Rateo dei suicidi in base all'età") + 
+  ylab("Rateo dei suicidi per 100k abitanti") + 
+  xlab("Età")
+
+
+```
+  
+```{r}   
+global_age_plot
+```
+
+Risulta evidente che alle domande precedenti la risposta è che al crescere dell'età aumenta considerevolmente la probabilità di ricorrere al suicidio, e questo vale sia per gli uomini che per le donne anche se in entità e misure diverse.
+
+## PIL pro-capite e quantità di popolazione
+
+Sono il PIL pro-capite e la quantità di popolazione di una nazione influenti nel determinare quanto statisticamente le persone ricorrono al suicidio?
+
+Sono questi dati impattanti allo stesso modo per gli uomini e per le donne?
+
+```{r, include = FALSE} 
+suicidal_rates_2010_by_gdp = suicidal_rates_data %>%
+  filter(year == 2010) %>%
+  group_by(country, sex) %>%
+  summarise(suicides_in_100k_pop = weighted.mean(suicides_in_100k_pop, population), population = sum(population), gdp_per_capita = mean(gdp_per_capita))
+
+suicidal_rates_male_2010_data = suicidal_rates_2010_by_gdp %>%
+  filter(sex == 'male') %>%
+  select(gdp_per_capita, suicides_in_100k_pop, population)
+
+male_matrix = data.matrix(suicidal_rates_male_2010_data)
+
+male_matrix = male_matrix[,c(2,3,4)]
+
+suicidal_rates_female_2010_data = suicidal_rates_2010_by_gdp %>%
+  filter(sex == 'female')%>%
+  select(gdp_per_capita, suicides_in_100k_pop, population)
+
+female_matrix = data.matrix(suicidal_rates_female_2010_data)
+
+female_matrix = female_matrix[,c(2,3,4)]
+
+library('corrplot')
+
+male_cor = cor(male_matrix)
+
+female_cor = cor(female_matrix)
+
+```
+
+```{r}   
+
+corrplot(male_cor, method="ellipse")
+
+corrplot(female_cor, method="ellipse")
+
+```
+
+Come si evince dai grafici di correlazione, nessuno dei dati in questione sembra essere strettamente legato al numero dei suicidi.
+
+Nel caso del grafico femminile è possibile vedere che la correlazione tra PIL pro-capite e rateo dei suicidi cresce leggermente in senso positivo, il che fa pensare che per le donne possa fare una minima differenza e che nei paesi più ricchi le donne tendano a suicidarsi con maggiori probabilità.
+
+## Mappa
+
+In conclusione riporto una mappa complessiva per gli uomini e una per le donne della situazione globale del rateo dei suici, le quali consentono di osservare come le questioni culturali potrebbero essere notevolmente determinanti in questo ambito.
+
+Regioni diverse del mondo infatti sembrano avere delle relazioni nel numero dei suicidi nei confronti delle regioni vicine con culture simili o storicamente legate.
+
+Inoltre è possibile osservare come questi elementi culturali colpiscano in modo tendenzialmente diverso uomini e donne
+
+Le due mappe riportano la situazione al **1995** data in cui il problema risultava più impattante (da grafico sul sesso).
+```{r, include = FALSE} 
+
+library('maps')
+library('rgdal')
+library('leaflet')
+library('htmltools')
+library('RColorBrewer')
+
+world = map_data('world')
+
+world_spdf <- readOGR(
+  dsn = paste0(getwd()),
+  layer="TM_WORLD_BORDERS_SIMPL-0.3",
+  verbose=FALSE
+)
+
+world_spdf@data$POP2005[ which(world_spdf@data$POP2005 == 0)] = NA
+world_spdf@data$POP2005 <- as.numeric(as.character(world_spdf@data$POP2005)) / 1000000 %>% round(2)
+
+world_spdf@data = world_spdf@data %>% 
+  mutate(NAME = case_when(NAME == 'Korea, Republic of' ~ 'Republic of Korea', TRUE ~ NAME))
+
+map_with_data = world_spdf
+
+country_male_suicidal_rates_data = suicidal_rates_data %>%
+  filter(sex == 'male') %>%
+  filter(year == 2010) %>%
+  group_by(country, sex) %>%
+  summarise(
+    suicides_in_100k_pop = weighted.mean(suicides_in_100k_pop, population),
+    total_population = sum(population),
+    gdp_per_capita = weighted.mean(gdp_per_capita, population)
+  )
+
+map_with_data@data = left_join(map_with_data@data, country_male_suicidal_rates_data, by = c('NAME' = 'country'))
+
+mybins = c(0, 10, 20, 30, 40, 50, Inf)
+mypalette = colorBin(palette="YlOrBr", domain=map_with_data@data$suicides_in_100k_pop, na.color = "transparent", bins = mybins)
+
+text = paste(
+  "Country: ", map_with_data@data$NAME, "<br/>",
+  "Suicidal rate (for 100k pop): ", round(map_with_data@data$suicides_in_100k_pop, 2), "<br/>",
+  "Population sample: ", map_with_data@data$total_population,"<br/>",
+  "GDP per capita: ", map_with_data@data$gdp_per_capita, sep="") %>% lapply(htmltools::HTML)
+
+male_map = leaflet(map_with_data) %>%
+  addTiles() %>%
+  setView(lat=10, lng=0, zoom=1) %>%
+  addPolygons(
+    fillColor = ~mypalette(suicides_in_100k_pop),
+    stroke=TRUE,
+    fillOpacity=0.9,
+    color="white",
+    weight = 0.3,
+    label=text,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "13px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend( pal=mypalette, values=~POP2005, opacity=0.9, title = "Suicidal rate (for 100k pop)", position = "bottomleft" )
+
+map_with_data = world_spdf
+
+country_female_suicidal_rates_data = suicidal_rates_data %>%
+  filter(sex == 'female') %>%
+  filter(year == 1995) %>%
+  group_by(country, sex) %>%
+  summarise(
+    suicides_in_100k_pop = weighted.mean(suicides_in_100k_pop, population),
+    total_population = sum(population),
+    gdp_per_capita = weighted.mean(gdp_per_capita, population)
+  )
+
+map_with_data@data = left_join(map_with_data@data, country_female_suicidal_rates_data, by = c('NAME' = 'country'))
+
+mybins = c(0, 3, 6, 9, 12, 15, Inf)
+mypalette = colorBin(palette="YlOrBr", domain=map_with_data@data$suicides_in_100k_pop, na.color = "transparent", bins = mybins)
+
+text = paste(
+  "Country: ", map_with_data@data$NAME, "<br/>",
+  "Suicidal rate (for 100k pop): ", round(map_with_data@data$suicides_in_100k_pop, 2), "<br/>",
+  "Population sample: ", map_with_data@data$total_population,"<br/>",
+  "GDP per capita: ", map_with_data@data$gdp_per_capita, sep="") %>% lapply(htmltools::HTML)
+
+female_map = leaflet(map_with_data) %>%
+  addTiles() %>%
+  setView(lat=10, lng=0, zoom=1) %>%
+  addPolygons(
+    fillColor = ~mypalette(suicides_in_100k_pop),
+    stroke=TRUE,
+    fillOpacity=0.9,
+    color="white",
+    weight = 0.3,
+    label=text,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "13px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend( pal=mypalette, values=~POP2005, opacity=0.9, title = "Suicidal rate (for 100k pop)", position = "bottomleft" )
+
+```
+
+Mappa per gli uomini:
+```{r}   
+
+male_map
+
+```
+Mappa per le donne:
+```{r}   
+
+female_map
+
+```
+
+## Considerazioni finali
+
+Come è stato possibile vedere dagli utlimi grafici in realtà molte delle nazioni del mondo non condividono proprio i propri dati.
+
+Queste sono nazioni tipicamente del terzo mondo e in cui le condizioni politiche o non consentono di raccogliere i dati o non risulta conveniente condividerli.
+
+Per le nazioni del terzo mondo che invece hanno fornito i propri dati questi risultano intuitivamente un po' strani ed è difficile dire se siano stati raccolti e condivisi nella maniera corretta.
+
+In ogni caso il fatto che manchi una gigantesca porzione del mondo a questo set di dati potrebbe portare a una rivalutazione di alcuni criteri come per esempio il collegamento tra gdp-pro capite e numero dei suicidi.
+
+Quello che si è fatto in questa relazione è analizzare i dati attualmente in nostro possesso e rispondere attraverso ad essi a delle domande, ma nelle risposte date è importante tenere in conto i limiti appena citati.
